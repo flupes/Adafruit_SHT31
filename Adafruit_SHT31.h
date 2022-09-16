@@ -55,6 +55,7 @@ public:
   ~Adafruit_SHT31();
 
   bool begin(uint8_t i2caddr = SHT31_DEFAULT_ADDR);
+  bool readHumidityAndTemperature(uint16_t &humidity, int16_t &temperature);
   float readTemperature(void);
   float readHumidity(void);
   void readBoth(float *temperature_out, float *humidity_out);
@@ -67,12 +68,12 @@ private:
   /**
    * Placeholder to track humidity internally.
    */
-  float humidity;
+  uint16_t humidity100;
 
   /**
    * Placeholder to track temperature internally.
    */
-  float temp;
+  int16_t temperature100;
 
   bool readTempHum(void);
   bool writeCommand(uint16_t cmd);

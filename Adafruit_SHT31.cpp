@@ -37,8 +37,8 @@
 Adafruit_SHT31::Adafruit_SHT31(TwoWire *theWire) {
   _wire = theWire;
 
-  humidity = NAN;
-  temp = NAN;
+  humidity100 = 0;
+  temperature100 = -27315;
 }
 
 /**
@@ -46,7 +46,7 @@ Adafruit_SHT31::Adafruit_SHT31(TwoWire *theWire) {
  */
 Adafruit_SHT31::~Adafruit_SHT31() {
   if (i2c_dev) {
-    delete i2c_dev; // remove old interface
+    delete i2c_dev;  // remove old interface
   }
 }
 
@@ -59,7 +59,7 @@ Adafruit_SHT31::~Adafruit_SHT31() {
  */
 bool Adafruit_SHT31::begin(uint8_t i2caddr) {
   if (i2c_dev) {
-    delete i2c_dev; // remove old interface
+    delete i2c_dev;  // remove old interface
   }
 
   i2c_dev = new Adafruit_I2CDevice(i2caddr, _wire);
@@ -126,10 +126,10 @@ bool Adafruit_SHT31::isHeaterEnabled() {
  * @return A float value indicating the temperature.
  */
 float Adafruit_SHT31::readTemperature(void) {
-  if (!readTempHum())
+  if (!readTempHum()) {
     return NAN;
-
-  return temp;
+  }
+  return static_cast<float>(temperature100) / 100.0f;
 }
 
 /**
@@ -138,10 +138,17 @@ float Adafruit_SHT31::readTemperature(void) {
  * @return A float value representing relative humidity.
  */
 float Adafruit_SHT31::readHumidity(void) {
-  if (!readTempHum())
+  if (!readTempHum()) {
     return NAN;
+  }
+  return static_cast<float>(humidity100) / 100.0f;
+}
 
-  return humidity;
+bool Adafruit_SHT31::readHumidityAndTemperature(uint16_t &humidity, int16_t &temperature) {
+  bool ok = readTempHum();
+  humidity = humidity100;
+  temperature = temperature100;
+  return ok;
 }
 
 /**
@@ -156,8 +163,8 @@ void Adafruit_SHT31::readBoth(float *temperature_out, float *humidity_out) {
     return;
   }
 
-  *temperature_out = temp;
-  *humidity_out = humidity;
+  *temperature_out = static_cast<float>(temperature100) / 100.0f;
+  *humidity_out = static_cast<float>(humidity100) / 100.0f;
 }
 
 /**
@@ -207,21 +214,18 @@ bool Adafruit_SHT31::readTempHum(void) {
 
   i2c_dev->read(readbuffer, sizeof(readbuffer));
 
-  if (readbuffer[2] != crc8(readbuffer, 2) ||
-      readbuffer[5] != crc8(readbuffer + 3, 2))
+  if (readbuffer[2] != crc8(readbuffer, 2) || readbuffer[5] != crc8(readbuffer + 3, 2))
     return false;
 
   int32_t stemp = (int32_t)(((uint32_t)readbuffer[0] << 8) | readbuffer[1]);
   // simplified (65536 instead of 65535) integer version of:
   // temp = (stemp * 175.0f) / 65535.0f - 45.0f;
-  stemp = ((4375 * stemp) >> 14) - 4500;
-  temp = (float)stemp / 100.0f;
+  temperature100 = ((4375 * stemp) >> 14) - 4500;
 
   uint32_t shum = ((uint32_t)readbuffer[3] << 8) | readbuffer[4];
   // simplified (65536 instead of 65535) integer version of:
   // humidity = (shum * 100.0f) / 65535.0f;
-  shum = (625 * shum) >> 12;
-  humidity = (float)shum / 100.0f;
+  humidity100 = (625 * shum) >> 12;
 
   return true;
 }
